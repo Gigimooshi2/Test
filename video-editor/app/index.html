@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clip Editor</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">✂ Clip Editor</div>
+    <select id="projectSelect" title="Project"></select>
+    <button id="btnRefreshProjects" class="icon" title="Refresh project list">⟳</button>
+    <span id="syncPill" class="pill">offline</span>
+    <div class="spacer"></div>
+    <button id="btnUndo" title="Undo (Ctrl+Z)">↶</button>
+    <button id="btnRedo" title="Redo (Ctrl+Shift+Z)">↷</button>
+    <label class="toggle" title="Commit changes to GitHub automatically"><input type="checkbox" id="chkAutosave" checked> autosave</label>
+    <button id="btnSave" title="Commit now (Ctrl+S)">Save</button>
+    <button id="btnRender" class="primary" title="Run the render GitHub Action">Render ▶</button>
+    <div class="menu">
+      <button id="btnMenu" title="More">⋯</button>
+      <div class="menu-items" id="menuItems" hidden>
+        <button id="btnSettings">GitHub settings…</button>
+        <button id="btnNewProject">New empty project</button>
+        <button id="btnOpenJson">Open project JSON…</button>
+        <button id="btnDownloadJson">Download project JSON</button>
+        <button id="btnHelp">Keyboard shortcuts</button>
+      </div>
+    </div>
+    <input type="file" id="fileJson" accept=".json,application/json" hidden>
+  </header>
+
+  <main class="layout">
+    <aside class="panel left">
+      <section>
+        <h2>Sources</h2>
+        <div id="sources"></div>
+        <button id="btnAddSource" class="small wide">+ Add video from inbox</button>
+      </section>
+      <section>
+        <h2>Output size</h2>
+        <div class="row">
+          <select id="outPreset">
+            <option value="1080x1920">9:16 vertical · 1080×1920</option>
+            <option value="1920x1080">16:9 landscape · 1920×1080</option>
+            <option value="1080x1080">1:1 square · 1080×1080</option>
+            <option value="1080x1350">4:5 portrait · 1080×1350</option>
+            <option value="1280x720">16:9 · 1280×720</option>
+            <option value="custom">custom</option>
+          </select>
+        </div>
+        <div class="row grid3">
+          <label>W <input type="number" id="outW" min="16" step="2"></label>
+          <label>H <input type="number" id="outH" min="16" step="2"></label>
+          <label>fps <input type="number" id="outFps" min="1" max="120"></label>
+        </div>
+        <div class="row">
+          <label>Background <input type="color" id="outBg"></label>
+        </div>
+      </section>
+    </aside>
+
+    <section class="center">
+      <div class="stage" id="stage">
+        <canvas id="preview"></canvas>
+        <div class="stage-msg" id="stageMsg"></div>
+      </div>
+      <div class="transport">
+        <button id="btnStart" title="Go to start (Home)">⏮</button>
+        <button id="btnPrevFrame" title="Back one frame (←)">◂</button>
+        <button id="btnPlay" class="play" title="Play / pause (Space)">▶</button>
+        <button id="btnNextFrame" title="Forward one frame (→)">▸</button>
+        <button id="btnEnd" title="Go to end (End)">⏭</button>
+        <span id="timecode" class="timecode">00:00.00 / 00:00.00</span>
+        <div class="spacer"></div>
+        <button id="btnSplit" title="Split clip at playhead (S)">✂ Split</button>
+        <button id="btnCropMode" title="Edit the crop of the selected clip (C)">⛶ Crop</button>
+      </div>
+    </section>
+
+    <aside class="panel right">
+      <div class="tabs">
+        <button data-tab="inspector" class="active">Clip</button>
+        <button data-tab="activity">Activity</button>
+        <button data-tab="notes">Notes</button>
+      </div>
+      <div class="tab" id="tab-inspector"></div>
+      <div class="tab" id="tab-activity" hidden>
+        <h3>Edits</h3>
+        <ul id="commits" class="list"></ul>
+        <h3>Actions runs</h3>
+        <ul id="runs" class="list"></ul>
+      </div>
+      <div class="tab" id="tab-notes" hidden>
+        <p class="hint">Notes are saved in the project file. Leave instructions for Claude here.</p>
+        <ul id="notes" class="list notes"></ul>
+        <textarea id="noteText" rows="3" placeholder="e.g. tighten the intro, make clip 3 slow-mo"></textarea>
+        <button id="btnAddNote" class="small">Add note</button>
+      </div>
+    </aside>
+
+    <section class="timeline-wrap">
+      <div class="timeline-bar">
+        <span class="hint" id="tlInfo"></span>
+        <div class="spacer"></div>
+        <label class="hint">zoom <input type="range" id="zoom" min="5" max="300" value="60"></label>
+      </div>
+      <div class="timeline" id="timeline">
+        <div class="ruler" id="ruler"></div>
+        <div class="track" id="track"></div>
+        <div class="playhead" id="playhead"></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toasts" class="toasts"></div>
+
+  <dialog id="dlgSettings">
+    <form method="dialog" class="dlg">
+      <h2>GitHub connection</h2>
+      <p class="hint">The app reads and commits <code>video-editor/projects/*.json</code> in this repository.
+        Reading a public repo needs no token. To save edits and run Actions, create a
+        <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained token</a>
+        for this repo with <b>Contents: read &amp; write</b> and <b>Actions: read &amp; write</b>.
+        It is stored only in this browser.</p>
+      <label>Owner <input id="cfgOwner" required></label>
+      <label>Repository <input id="cfgRepo" required></label>
+      <label>Branch <input id="cfgBranch" required></label>
+      <label>Token <input id="cfgToken" type="password" autocomplete="off" placeholder="github_pat_…"></label>
+      <label>Check for changes every <input id="cfgPoll" type="number" min="3" max="300" style="width:5em"> s</label>
+      <menu>
+        <button value="cancel" formnovalidate>Cancel</button>
+        <button value="ok" class="primary">Connect</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="dlgConflict">
+    <form method="dialog" class="dlg">
+      <h2>Edited in two places</h2>
+      <p id="conflictText"></p>
+      <menu>
+        <button value="theirs">Take theirs (drop my unsaved edits)</button>
+        <button value="mine" class="primary">Keep mine (overwrite)</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="dlgPick">
+    <form method="dialog" class="dlg">
+      <h2 id="pickTitle">Pick</h2>
+      <ul id="pickList" class="list pick"></ul>
+      <menu><button value="cancel">Cancel</button></menu>
+    </form>
+  </dialog>
+
+  <dialog id="dlgHelp">
+    <form method="dialog" class="dlg">
+      <h2>Shortcuts</h2>
+      <table class="keys">
+        <tr><td>Space</td><td>Play / pause</td></tr>
+        <tr><td>S</td><td>Split at playhead</td></tr>
+        <tr><td>Delete</td><td>Delete selected clip</td></tr>
+        <tr><td>[ / ]</td><td>Trim selected clip's start / end to playhead</td></tr>
+        <tr><td>C</td><td>Toggle crop editing</td></tr>
+        <tr><td>← / →</td><td>Step one frame (Shift: 1 s)</td></tr>
+        <tr><td>Home / End</td><td>Jump to start / end</td></tr>
+        <tr><td>Ctrl+Z / Ctrl+Shift+Z</td><td>Undo / redo</td></tr>
+        <tr><td>Ctrl+S</td><td>Commit now</td></tr>
+      </table>
+      <p class="hint">Drag a clip to reorder it, drag its edges to trim it.</p>
+      <menu><button value="ok" class="primary">OK</button></menu>
+    </form>
+  </dialog>
+
+  <script src="github.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

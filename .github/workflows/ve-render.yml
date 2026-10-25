@@ -1,0 +1,53 @@
+name: Video editor · render
+
+# Renders a project to MP4. Started from the editor's Render button (or by Claude).
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: "Repo path of the project JSON"
+        required: true
+      scale:
+        description: "Resolution multiplier (0.5 = quick preview)"
+        default: "1"
+
+run-name: "Render ${{ inputs.project }}"
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false  # only the project's own videos are pulled
+
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
+      - name: Render
+        id: render
+        env:
+          PROJECT: ${{ inputs.project }}
+          SCALE: ${{ inputs.scale }}
+        run: |
+          name=$(basename "$PROJECT" .json)
+          python3 video-editor/tools/project.py info "$PROJECT"
+          python3 video-editor/tools/render.py "$PROJECT" --scale "$SCALE" -o "out/${name}.mp4"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Rendered \`$PROJECT\`"
+            echo '```'
+            python3 video-editor/tools/project.py info "$PROJECT"
+            echo '```'
+            echo "Download the MP4 from **Artifacts** below."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.render.outputs.name }}-render-${{ github.run_number }}
+          path: out/*.mp4
+          retention-days: 14
+          compression-level: 0

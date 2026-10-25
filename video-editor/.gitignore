@@ -1,0 +1,4 @@
+.models/
+renders/
+__pycache__/
+*.tmp

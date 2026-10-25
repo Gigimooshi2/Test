@@ -1,0 +1,8 @@
+# Raw videos for the video editor are stored with Git LFS (GitHub blocks regular files over 100 MB).
+video-editor/inbox/**/*.mp4 filter=lfs diff=lfs merge=lfs -text
+video-editor/inbox/**/*.MP4 filter=lfs diff=lfs merge=lfs -text
+video-editor/inbox/**/*.mov filter=lfs diff=lfs merge=lfs -text
+video-editor/inbox/**/*.MOV filter=lfs diff=lfs merge=lfs -text
+video-editor/inbox/**/*.m4v filter=lfs diff=lfs merge=lfs -text
+video-editor/inbox/**/*.mkv filter=lfs diff=lfs merge=lfs -text
+video-editor/inbox/**/*.webm filter=lfs diff=lfs merge=lfs -text
