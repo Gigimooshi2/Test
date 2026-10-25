@@ -31,7 +31,7 @@ on:
         type: boolean
         default: false
 
-run-name: "Detect ${{ inputs.video || github.event.head_commit.message || 'new videos' }}"
+run-name: "Detect ${{ inputs.video || 'new videos' }}"
 
 permissions:
   contents: write

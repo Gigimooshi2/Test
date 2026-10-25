@@ -8,7 +8,7 @@
 
 Detections always get (re)written. A project is only created when none exists
 for the video, so edits made in the app are never overwritten (unless --force-project).
-Extra detector flags (e.g. --sample-fps 8 --body) are passed through to detect.py.
+Detector flags (--sample-fps, --threshold, --body, ...) are passed on to detect.py.
 """
 
 import argparse
@@ -47,7 +47,16 @@ def main():
     ap.add_argument("--all", action="store_true")
     ap.add_argument("--aspect", default="9:16")
     ap.add_argument("--force-project", action="store_true")
-    a, detect_args = ap.parse_known_args()
+    for flag in ("--sample-fps", "--threshold", "--gap", "--min-len", "--pad", "--reference", "--models-dir"):
+        ap.add_argument(flag)
+    ap.add_argument("--body", action="store_true")
+    ap.add_argument("--any-face", action="store_true")
+    a = ap.parse_args()
+    detect_args = []
+    for flag in ("sample_fps", "threshold", "gap", "min_len", "pad", "reference", "models_dir"):
+        if getattr(a, flag) is not None:
+            detect_args += [f"--{flag.replace('_', '-')}", getattr(a, flag)]
+    detect_args += ["--body"] * a.body + ["--any-face"] * a.any_face
 
     if a.videos:
         videos = [velib.repo_abs(v) for v in a.videos]
